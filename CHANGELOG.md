@@ -1,3 +1,9 @@
+## 2.8.0
+
+* Opt-in cap on how much earlier text conditions each window of `transcribe` ([#31](https://github.com/sk3llo/whisper_ggml/pull/31)): pass `maxContext` (controller and low-level API) to set whisper.cpp's `n_max_text_ctx`, the CLI's `--max-context` / `-mc`. `maxContext: 0` decodes every 30-second window without the text decoded before it — the closest match to Python whisper's `condition_on_previous_text=False` — which stops one hallucinated phrase from repeating window after window on long recordings. On a ~3 h recording with `ggml-base-q5_1`, the share of segments inside runs of five or more identical segments fell from 71% to 1.4%. whisper.cpp feeds `initialPrompt` through the same budget, so `0` also disables it. Off by default; implemented in all three native shims. Contributed by @TechupBusiness
+* Corrected the `noContext` docs: it clears text that an earlier transcription left on the model context, but never stopped the windows of one recording from conditioning on each other, so it was not equivalent to `condition_on_previous_text=False` as previously documented
+* README: the decoding-options table now says which options `transcribeLive` accepts (it never took `noContext`)
+
 ## 2.7.1
 
 * Fixed Android builds failing at `checkDebugAarMetadata` on newer toolchains ([#30](https://github.com/sk3llo/whisper_ggml/issues/30)): the plugin compiled against `compileSdk 34` while its own dependency `ffmpeg_kit_flutter_new_min` 2.1.0 requires consumers to compile against 35 or later, and an app cannot override a plugin's `compileSdk`. The plugin now uses `compileSdk 36`, Flutter's own default. Thanks @d4kr for the report
