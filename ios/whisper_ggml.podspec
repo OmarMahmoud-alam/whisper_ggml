@@ -24,16 +24,15 @@ A new Flutter FFI plugin project.
   s.platform = :ios, '15.6'
   s.ios.deployment_target  = '15.6'
 
-  # Flutter.framework does not contain a i386 slice.
-  s.xcconfig = {
-    'IPHONEOS_DEPLOYMENT_TARGET' => '15.6',
-    'CLANG_CXX_LANGUAGE_STANDARD' => 'c++20',
-  }
   s.library = 'c++'
   s.frameworks = 'Accelerate'
+  # Build settings stay pod-scoped: s.xcconfig would also put them in the
+  # app's Pods-Runner xcconfig, where they can override the app's own (#32).
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
+    # Flutter.framework does not contain a i386 slice.
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
+    'CLANG_CXX_LANGUAGE_STANDARD' => 'c++20',
     # whisper.cpp v1.9.1 (CPU backend) include roots
     'HEADER_SEARCH_PATHS' => [
       '"$(PODS_TARGET_SRCROOT)/Classes/whisper/include"',

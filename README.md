@@ -52,7 +52,9 @@ dependencies:
   whisper_ggml: ^2.8.0
 ```
 
-Requires Dart 3.7+ (Flutter 3.29+).
+Requires Dart 3.7+ (Flutter 3.29+). On iOS, set the deployment target to
+15.6 or later both in `ios/Podfile` (`platform :ios, '15.6'`) and in
+Xcode (Runner → General → Minimum Deployments).
 
 ## Quick start
 

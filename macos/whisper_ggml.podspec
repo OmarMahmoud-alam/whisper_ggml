@@ -20,13 +20,13 @@ A new Flutter FFI plugin project.
   s.public_header_files = 'Classes/whisper/include/whisper.h'
   s.dependency 'FlutterMacOS'
   s.platform = :osx, '10.15'
-  s.xcconfig = {
-      'CLANG_CXX_LANGUAGE_STANDARD' => 'c++20',
-  }
   s.library = 'c++'
   s.frameworks = 'Accelerate'
+  # Build settings stay pod-scoped: s.xcconfig would also put them in the
+  # app's Pods-Runner xcconfig, where they can override the app's own (#32).
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
+    'CLANG_CXX_LANGUAGE_STANDARD' => 'c++20',
     # whisper.cpp v1.9.1 (CPU backend) include roots
     'HEADER_SEARCH_PATHS' => [
       '"$(PODS_TARGET_SRCROOT)/Classes/whisper/include"',
