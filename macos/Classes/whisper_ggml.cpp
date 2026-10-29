@@ -642,6 +642,8 @@ struct whisper_stream_state
     float gate_ratio = 2.5f;        // voiced thold = ratio * noise_floor
     float gate_floor_cap = 0.01f;   // noise_floor cap (loud rooms)
     bool fit_audio_ctx = false;  // encode only the window, not 30 s
+    int audio_ctx_min = 512;     // ...but never less than this (10 s)
+    bool fast_decode = false;    // no timestamps, no temperature fallback
     size_t step_samples = 0;     // new audio between runs (set by start)
     std::string committed;       // text of windows already committed
     std::string last_text;       // text of the current window's last run
@@ -724,8 +726,19 @@ static json stream_run_inference()
     // Whisper always encodes 30 s (1500 frames) of audio, padding short
     // windows with silence. fit_audio_ctx encodes only the window plus a
     // margin, which makes a 10 s window several times faster to decode.
+    // Below about 10 s the model starts to mishear (الم as اللامين), so
+    // short windows still get audio_ctx_min frames.
     if (g_stream.fit_audio_ctx) {
-        wparams.audio_ctx = (int)std::min<size_t>(1500, n_decode / 320 + 128);
+        const int fit = (int)(n_decode / 320) + 128;
+        wparams.audio_ctx =
+            std::min(1500, std::max(fit, g_stream.audio_ctx_min));
+    }
+    // A partial is redone in moments anyway: skip timestamp tokens, and the
+    // retries at higher temperatures that make some decodes several times
+    // slower than the rest
+    if (g_stream.fast_decode) {
+        wparams.no_timestamps = true;
+        wparams.temperature_inc = 0.0f;
     }
 
     if (whisper_full(g_stream.ctx, wparams, g_stream.pcmf32.data(),
@@ -797,6 +810,8 @@ extern "C"
             g_stream.gate_ratio     = (float)jsonBody.value("gate_voice_ratio", 2.5);
             g_stream.gate_floor_cap = (float)jsonBody.value("gate_floor_cap", 0.01);
             g_stream.fit_audio_ctx = jsonBody.value("fit_audio_ctx", false);
+            g_stream.audio_ctx_min = jsonBody.value("audio_ctx_min", 512);
+            g_stream.fast_decode = jsonBody.value("fast_decode", false);
             g_stream.step_samples = (size_t)(jsonBody.value("step_ms", 1500) *
                                              WHISPER_SAMPLE_RATE / 1000);
             g_stream.prompt.clear();

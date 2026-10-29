@@ -67,7 +67,11 @@ class WhisperLiveSession {
 ///
 /// [fitAudioCtx] encodes only the audio of the current window instead of
 /// whisper's fixed 30 s, which makes each partial several times cheaper on
-/// short windows. [stepMs] is how much new audio triggers the next partial.
+/// short windows; below [audioCtxMin] frames (50 per second) the model
+/// starts to mishear, so short windows get that many. [fastDecode] skips
+/// timestamp tokens and the retries at higher temperatures that make some
+/// partials several times slower. [stepMs] is how much new audio triggers
+/// the next partial.
 ///
 /// [keepModelLoaded] parks the session's model in native memory on
 /// [WhisperLiveSession.stop] instead of freeing it, so the next session
@@ -87,6 +91,8 @@ Future<WhisperLiveSession> startWhisperLiveSession({
   double gateVoiceRatio = 2.5,
   double gateNoiseFloorCap = 0.01,
   bool fitAudioCtx = false,
+  int audioCtxMin = 512,
+  bool fastDecode = false,
   int stepMs = 1500,
 }) async {
   final ReceivePort fromWorker = ReceivePort();
@@ -150,6 +156,8 @@ Future<WhisperLiveSession> startWhisperLiveSession({
       'gate_voice_ratio': gateVoiceRatio,
       'gate_floor_cap': gateNoiseFloorCap,
       'fit_audio_ctx': fitAudioCtx,
+      'audio_ctx_min': audioCtxMin,
+      'fast_decode': fastDecode,
       'step_ms': stepMs,
       if (initialPrompt != null && initialPrompt.isNotEmpty)
         'initial_prompt': initialPrompt,
