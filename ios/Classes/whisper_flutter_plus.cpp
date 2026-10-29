@@ -641,6 +641,8 @@ struct whisper_stream_state
     float gate_rms_min = 0.0015f;   // absolute minimum speech RMS
     float gate_ratio = 2.5f;        // voiced thold = ratio * noise_floor
     float gate_floor_cap = 0.01f;   // noise_floor cap (loud rooms)
+    bool fit_audio_ctx = false;  // encode only the window, not 30 s
+    size_t step_samples = 0;     // new audio between runs (set by start)
     std::string committed;       // text of windows already committed
     std::string last_text;       // text of the current window's last run
     std::string language = "en";
@@ -687,7 +689,6 @@ static void stream_dispose_ctx()
     g_stream.park_on_stop = false;
 }
 
-static const size_t STREAM_STEP_SAMPLES   = (size_t)(1.5 * WHISPER_SAMPLE_RATE);
 static const size_t STREAM_COMMIT_SAMPLES = (size_t)(25.0 * WHISPER_SAMPLE_RATE);
 // Decode this much audio past the last voiced sample (trailing consonants).
 static const size_t STREAM_VOICE_PAD      = (size_t)(0.2 * WHISPER_SAMPLE_RATE);
@@ -718,6 +719,13 @@ static json stream_run_inference()
     if (n_decode < (size_t)WHISPER_SAMPLE_RATE / 2) {
         result["text"] = g_stream.committed + g_stream.last_text;
         return result;
+    }
+
+    // Whisper always encodes 30 s (1500 frames) of audio, padding short
+    // windows with silence. fit_audio_ctx encodes only the window plus a
+    // margin, which makes a 10 s window several times faster to decode.
+    if (g_stream.fit_audio_ctx) {
+        wparams.audio_ctx = (int)std::min<size_t>(1500, n_decode / 320 + 128);
     }
 
     if (whisper_full(g_stream.ctx, wparams, g_stream.pcmf32.data(),
@@ -788,6 +796,9 @@ extern "C"
             g_stream.gate_rms_min   = (float)jsonBody.value("gate_rms_min", 0.0015);
             g_stream.gate_ratio     = (float)jsonBody.value("gate_voice_ratio", 2.5);
             g_stream.gate_floor_cap = (float)jsonBody.value("gate_floor_cap", 0.01);
+            g_stream.fit_audio_ctx = jsonBody.value("fit_audio_ctx", false);
+            g_stream.step_samples = (size_t)(jsonBody.value("step_ms", 1500) *
+                                             WHISPER_SAMPLE_RATE / 1000);
             g_stream.prompt.clear();
             if (jsonBody.contains("initial_prompt") && jsonBody["initial_prompt"].is_string()) {
                 g_stream.prompt = jsonBody["initial_prompt"].get<std::string>();
@@ -883,7 +894,7 @@ extern "C"
         // Run only when new *voiced* audio arrived — silence alone
         // never triggers a decode.
         if (g_stream.n_voiced > g_stream.n_transcribed &&
-            g_stream.pcmf32.size() - g_stream.n_transcribed >= STREAM_STEP_SAMPLES) {
+            g_stream.pcmf32.size() - g_stream.n_transcribed >= g_stream.step_samples) {
             return jsonToChar(stream_run_inference());
         }
 

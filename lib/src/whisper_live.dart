@@ -65,6 +65,10 @@ class WhisperLiveSession {
 /// away from the decoder; see `WhisperController.transcribeLive` for
 /// details.
 ///
+/// [fitAudioCtx] encodes only the audio of the current window instead of
+/// whisper's fixed 30 s, which makes each partial several times cheaper on
+/// short windows. [stepMs] is how much new audio triggers the next partial.
+///
 /// [keepModelLoaded] parks the session's model in native memory on
 /// [WhisperLiveSession.stop] instead of freeing it, so the next session
 /// (or one-shot transcription) with the same model file skips the
@@ -82,6 +86,8 @@ Future<WhisperLiveSession> startWhisperLiveSession({
   double gateRmsMin = 0.0015,
   double gateVoiceRatio = 2.5,
   double gateNoiseFloorCap = 0.01,
+  bool fitAudioCtx = false,
+  int stepMs = 1500,
 }) async {
   final ReceivePort fromWorker = ReceivePort();
   final Isolate worker =
@@ -143,6 +149,8 @@ Future<WhisperLiveSession> startWhisperLiveSession({
       'gate_rms_min': gateRmsMin,
       'gate_voice_ratio': gateVoiceRatio,
       'gate_floor_cap': gateNoiseFloorCap,
+      'fit_audio_ctx': fitAudioCtx,
+      'step_ms': stepMs,
       if (initialPrompt != null && initialPrompt.isNotEmpty)
         'initial_prompt': initialPrompt,
     }),
